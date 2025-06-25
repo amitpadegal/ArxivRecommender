@@ -1,3 +1,5 @@
 "fastapi[all]"
 chromadb
 httpx
+firebase-admin
+python-dotenv
