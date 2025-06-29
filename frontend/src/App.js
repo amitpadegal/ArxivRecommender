@@ -1,35 +1,58 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { auth, provider, signInWithPopup, signOut } from "./firebase";
 import { getIdToken } from "firebase/auth";
+import RecommendedPapers from "./components/RecommendedPapers";
 
 function App() {
   const [user, setUser] = useState(null);
+  const [feedback, setFeedback] = useState({});
+  const sentRef = useRef(false);
+
+  const sendFeedback = async () => {
+    if (sentRef.current || Object.keys(feedback).length === 0) return;
+    sentRef.current = true;
+
+    const user = auth.currentUser;
+    if (!user) return;
+    console.log(feedback);
+    const token = await user.getIdToken();
+    await fetch("http://localhost:8000/feedback", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ feedback }),
+    });
+  };
+
+  const getRecommendations = async () => {
+    console.log("Sending feedback");
+    await sendFeedback(); // 🔁 flush feedback
+  };
+
+  const handleLogout = async () => {
+    console.log("Sending feedback");
+    await sendFeedback(); // 🔁 flush feedback
+    await auth.signOut(); // 🚪 logout
+  };
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (!user) {
+        await sendFeedback();
+      }
+    });
+
+    return () => unsubscribe();
+  }, [feedback]);
+
 
   const handleLogin = async () => {
     const result = await signInWithPopup(auth, provider);
     setUser(result.user);
   };
 
-  const handleLogout = () => {
-    signOut(auth);
-    setUser(null);
-  };
-
-  const handleGetToken = async () => {
-    if (!auth.currentUser) return;
-    const token = await getIdToken(auth.currentUser, true); // Firebase JWT
-    console.log("Firebase JWT:", token);
-
-    // Send token to backend
-    const response = await fetch("http://localhost:8000/recommend", {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    });
-
-    const data = await response.json();
-    console.log(data);
-  };
 
   return (
     <div>
@@ -40,7 +63,8 @@ function App() {
         <>
           <p>Welcome, {user.displayName}</p>
           <button onClick={handleLogout}>Logout</button>
-          <button onClick={handleGetToken}>Get Recommendations</button>
+          <button onClick={getRecommendations}>Get Recommendations</button>
+          <RecommendedPapers feedback={feedback} setFeedback={setFeedback} />
         </>
       )}
     </div>

@@ -3,7 +3,7 @@ from db.db import paper_collection, user_collection
 import numpy as np
 import random
 
-VECTOR_DIM = 768  # or 512 etc. depending on your embedding model
+VECTOR_DIM = 384  # or 512 etc. depending on your embedding model
 
 # switch `add` to `upsert` to avoid adding the same documents every time
 def insert_papers(documents, ids=None, metadatas=None):
@@ -62,10 +62,10 @@ def get_or_initialize_user_vector(uid: str):
         return empty_vector
 
 def search_similar_papers(user_vector, top_k=5):
+    print(f"Searching for top {top_k} similar papers...")
     results = paper_collection.query(
         query_embeddings=[user_vector],
         n_results=top_k,
-        where={"type": "paper"},
         include=["documents", "metadatas"]
     )
     return results
@@ -80,6 +80,7 @@ def get_random_papers(count=5):
     indices = random.sample(range(len(all_papers["documents"])), min(count, len(all_papers["documents"])))
     return {
         "documents": [all_papers["documents"][i] for i in indices],
+        "ids": [all_papers["ids"][i] for i in indices],
         "metadatas": [all_papers["metadatas"][i] for i in indices],
     }
 
@@ -108,3 +109,19 @@ def check_papers_exist():
     """
     all_papers = paper_collection.get()
     return len(all_papers["ids"]) > 0
+
+def update_user_vector_with_feedback(user_vector, feedback, uid):
+    updated = np.array(user_vector)
+    print(updated)
+    for paper_id, score in feedback.items():
+        result = paper_collection.get(ids=[paper_id], include=["embeddings"])
+        paper_vector = np.array(result["embeddings"][0])
+        updated += score * paper_vector  # +1 for like, -1 for dislike
+    updated = (updated / np.linalg.norm(updated)).tolist()
+    print(updated)
+    # Update the user vector in the collection
+    user_collection.upsert(
+        ids=[uid],
+        embeddings=[updated],
+        metadatas=[{"status": "updated"}]
+    )  # normalize
