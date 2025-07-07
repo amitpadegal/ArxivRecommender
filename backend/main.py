@@ -42,13 +42,13 @@ async def recommend(request: Request):
     # Check if any papers are present
     if not check_papers_exist():
         print("No papers found, fetching from arXiv...")
-        papers = fetch_arxiv_papers("cs.CL", max_results=5)
+        papers = fetch_arxiv_papers("cs.CL", max_results=150)
         documents = [paper["summary"] for paper in papers]
         ids = [paper["url"] for paper in papers]
+        print(ids)
         metadatas = [{"title": paper["title"], "authors": ", ".join(paper["authors"]), "published": paper["published"]} for paper in papers]
         insert_papers(documents, ids, metadatas)
-        out = get_papers("machine learning", limit=1)
-        print(f"Retrieved {len(out[0])} papers from the database.")
+
     print("after")
     result = return_papers(user_vector)
     print(result)

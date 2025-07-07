@@ -68,7 +68,11 @@ def search_similar_papers(user_vector, top_k=5):
         n_results=top_k,
         include=["documents", "metadatas"]
     )
-    return results
+    return {
+        "documents": results['documents'][0],  # results is a dict with 'documents' as a list of lists
+        "ids": results['ids'][0],  # 'ids' is also a list of lists
+        "metadatas": results.get('metadatas', [[]])[0]  # 'metadatas' is optional, default to empty list if not present
+    }
 
 def get_random_papers(count=5):
     all_papers = paper_collection.get(
@@ -96,8 +100,10 @@ def return_papers(user_vector, top_k=5):
         dict: A dictionary containing the documents and their metadata.
     """
     if all(v == 0.0 for v in user_vector):
+        print("User vector is zero, returning random papers.")
         return get_random_papers(count=top_k)
     else:
+        print("User vector is non-zero, searching for similar papers.")
         return search_similar_papers(user_vector, top_k)
 
 def check_papers_exist():
@@ -115,6 +121,7 @@ def update_user_vector_with_feedback(user_vector, feedback, uid):
     print(updated)
     for paper_id, score in feedback.items():
         result = paper_collection.get(ids=[paper_id], include=["embeddings"])
+        print(paper_id)
         paper_vector = np.array(result["embeddings"][0])
         updated += score * paper_vector  # +1 for like, -1 for dislike
     updated = (updated / np.linalg.norm(updated)).tolist()
